@@ -13,4 +13,3 @@ configure<PatchExtension> {
 tasks.register("rebuildPatches") {
   dependsOn(tasks.makePatches)
 }
-

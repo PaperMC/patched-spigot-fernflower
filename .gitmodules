@@ -1,3 +1,6 @@
 [submodule "work/Fernflower"]
 	path = work/Fernflower
 	url = https://hub.spigotmc.org/stash/scm/spigot/Fernflower.git
+[submodule "work/Determiner"]
+	path = work/Determiner
+	url = git@github.com:SpigotMC/Determiner.git

@@ -6,4 +6,3 @@ pluginManagement {
 }
 
 rootProject.name = "patched-spigot-fernflower"
-
