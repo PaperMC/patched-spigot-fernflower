@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jason Penilla <11360596+jpenilla@users.noreply.github.com>
+Date: Wed, 6 Apr 2022 11:43:46 -0700
+Subject: [PATCH] Fix Spigot EclipseFormatter for threaded decompile
+
+
+diff --git a/src/org/spigotmc/fernflower/EclipseFormatter.java b/src/org/spigotmc/fernflower/EclipseFormatter.java
+index 7b939131a9872577c321e0a080b7e28deaa185d0..6a124ad4cda9b2018658c0963f146986983aa164 100644
+--- a/src/org/spigotmc/fernflower/EclipseFormatter.java
++++ b/src/org/spigotmc/fernflower/EclipseFormatter.java
+@@ -11,9 +11,7 @@ import org.eclipse.text.edits.TextEdit;
+ 
+ public class EclipseFormatter {
+ 
+-  private static final CodeFormatter formatter;
+-
+-  static {
++  private static final ThreadLocal<CodeFormatter> formatter = ThreadLocal.withInitial(() -> {
+     DefaultCodeFormatterOptions options = new DefaultCodeFormatterOptions(null);
+     options.setJavaConventionsSettings();
+ 
+@@ -31,11 +29,11 @@ public class EclipseFormatter {
+     options.insert_space_before_closing_brace_in_array_initializer = false;
+     // options.blank_lines_before_first_class_body_declaration = 1; // Needed later
+ 
+-    formatter = new DefaultCodeFormatter(options);
+-  }
++    return new DefaultCodeFormatter(options);
++  });
+ 
+   public static String format(String contents) throws BadLocationException {
+-    TextEdit formatted = formatter.format(CodeFormatter.K_COMPILATION_UNIT, contents, 0, contents.length(), 0, "\n");
++    TextEdit formatted = formatter.get().format(CodeFormatter.K_COMPILATION_UNIT, contents, 0, contents.length(), 0, "\n");
+ 
+     IDocument doc = new SimpleDocument(contents);
+     formatted.apply(doc);
