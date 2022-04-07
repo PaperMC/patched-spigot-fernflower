@@ -14,7 +14,10 @@ jobs:
           distribution: 'temurin'
           java-version: 17
       - name: "publish snapshot"
-        run: ./gradlew publish
+        run: |
+          git config --global user.email "no-reply@github.com"
+          git config --global user.name "Github Actions"
+          ./gradlew publish --stacktrace
         env:
           ORG_GRADLE_PROJECT_paperUsername: "${{ secrets.PAPER_REPO_USER }}"
           ORG_GRADLE_PROJECT_paperPassword: "${{ secrets.PAPER_REPO_PASSWORD }}"
