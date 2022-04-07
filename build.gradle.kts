@@ -19,14 +19,10 @@ tasks.register("rebuildPatches") {
   dependsOn(tasks.makePatches)
 }
 
-val ff = tasks.register("buildFernflower") {
+val ff = tasks.register<Exec>("buildFernflower") {
   doNotTrackState("Always run when requested")
   outputs.file(layout.projectDirectory.file("fernflower.jar"))
-  doLast {
-    exec {
-      executable = layout.projectDirectory.file("build.sh").asFile.absolutePath
-    }
-  }
+  executable = layout.projectDirectory.file("build.sh").asFile.absolutePath
 }
 
 publishing {
