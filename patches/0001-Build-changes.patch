@@ -5,7 +5,7 @@ Subject: [PATCH] Build changes
 
 
 diff --git a/pom.xml b/pom.xml
-index 6ebf34fa52ed2c8da0412a69e4952c10fcf92fc8..7040c12b12253ab7ef4cf8476576531444c0e77e 100644
+index ce340f924d2ddffa1795601a125cede49e9ba4f8..1efb3586dbacbee9a60080554a114ebc28381d04 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -39,6 +39,7 @@
@@ -24,12 +24,3 @@ index 6ebf34fa52ed2c8da0412a69e4952c10fcf92fc8..7040c12b12253ab7ef4cf84765765314
              <plugin>
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-jar-plugin</artifactId>
-@@ -75,7 +77,7 @@
-             <plugin>
-                 <groupId>org.apache.maven.plugins</groupId>
-                 <artifactId>maven-shade-plugin</artifactId>
--                <version>3.1.1</version>
-+                <version>3.3.0</version>
-                 <executions>
-                     <execution>
-                         <phase>package</phase>
