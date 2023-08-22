@@ -1,18 +1,16 @@
-import net.minecrell.gitpatcher.PatchExtension
-
 plugins {
   `maven-publish`
-  id("net.minecraftforge.gitpatcher") version "0.10.+"
+  id("ca.stellardrift.gitpatcher") version "1.0.0"
 }
 
 val ghRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.let { "build.$it" } ?: "local"
 group = "io.papermc"
 version = "0.1+$ghRunNumber"
 
-configure<PatchExtension> {
-  submodule = "work/Fernflower"
-  target = file("patched-spigot-fernflower")
-  patches = file("patches")
+patches {
+  submodule.set("work/Fernflower")
+  target.set(file("patched-spigot-fernflower"))
+  patches.set(file("patches"))
 }
 
 tasks.register("rebuildPatches") {
