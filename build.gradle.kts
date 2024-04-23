@@ -1,6 +1,6 @@
 plugins {
   `maven-publish`
-  id("ca.stellardrift.gitpatcher") version "1.0.0"
+  id("ca.stellardrift.gitpatcher") version "1.1.0"
 }
 
 val ghRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.let { "build.$it" } ?: "local"

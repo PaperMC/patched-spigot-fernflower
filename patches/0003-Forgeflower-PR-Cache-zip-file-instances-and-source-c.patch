@@ -6,18 +6,18 @@ Subject: [PATCH] Forgeflower PR - Cache zip file instances and source class
 
 
 diff --git a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
-index de70b5a5cb47fd2f00d3b9c05a24f9baf9aa4021..a66d9bd6421b89c69d945bc8d875581aa608468d 100644
+index 76e318d000c090679ccc3767a7404706bd74ecbe..c04e78fef79c233729a6e987fc0c1f5eaebb255a 100644
 --- a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
 +++ b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
 @@ -1,6 +1,7 @@
- // Copyright 2000-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+ // Copyright 2000-2022 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
  package org.jetbrains.java.decompiler.main;
  
 +import java.util.concurrent.ConcurrentHashMap;
  import org.jetbrains.java.decompiler.code.CodeConstants;
  import org.jetbrains.java.decompiler.code.Instruction;
  import org.jetbrains.java.decompiler.code.InstructionSequence;
-@@ -34,8 +35,7 @@ public class ClassesProcessor implements CodeConstants {
+@@ -35,8 +36,7 @@ public class ClassesProcessor {
    public static final int AVERAGE_CLASS_SIZE = 16 * 1024;
  
    private final StructContext context;
@@ -28,10 +28,10 @@ index de70b5a5cb47fd2f00d3b9c05a24f9baf9aa4021..a66d9bd6421b89c69d945bc8d875581a
    private static class Inner {
      private String simpleName;
 diff --git a/src/org/jetbrains/java/decompiler/main/Fernflower.java b/src/org/jetbrains/java/decompiler/main/Fernflower.java
-index 8c3337496e31d045cd9c462c8ae5f799bc9ceb06..3cbc58a29e520bc1205f0b129b82029eda7f7f7d 100644
+index 1ec64056ac6ef7044d3bc68108846ab72acd07f9..4f7b72c4e40956e60349e199fe492d25aff992a7 100644
 --- a/src/org/jetbrains/java/decompiler/main/Fernflower.java
 +++ b/src/org/jetbrains/java/decompiler/main/Fernflower.java
-@@ -92,6 +92,7 @@ public class Fernflower implements IDecompiledData {
+@@ -98,6 +98,7 @@ public class Fernflower implements IDecompiledData {
    }
  
    public void clearContext() {
@@ -40,10 +40,10 @@ index 8c3337496e31d045cd9c462c8ae5f799bc9ceb06..3cbc58a29e520bc1205f0b129b82029e
    }
  
 diff --git a/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java b/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
-index d0bbb370b5f3e794b773b3d2cc4fa64e740ffd1b..a5216e8f7ba2c583cc1c7d11be8ca62209bbe042 100644
+index 5a75806a00e01c9ea8f238da4d5a9b7b38be8a7c..ae5195d3bbad80b6118629a6b272c9fd310bfb5b 100644
 --- a/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
 +++ b/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
-@@ -8,6 +8,7 @@ import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
+@@ -9,6 +9,7 @@ import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
  import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
  import org.jetbrains.java.decompiler.main.extern.IResultSaver;
  import org.jetbrains.java.decompiler.util.InterpreterUtil;
@@ -51,15 +51,15 @@ index d0bbb370b5f3e794b773b3d2cc4fa64e740ffd1b..a5216e8f7ba2c583cc1c7d11be8ca622
  
  import java.io.*;
  import java.nio.charset.StandardCharsets;
-@@ -102,6 +103,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -103,6 +104,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
    private final Fernflower engine;
    private final Map<String, ZipOutputStream> mapArchiveStreams = new HashMap<>();
    private final Map<String, Set<String>> mapArchiveEntries = new HashMap<>();
 +  private final ZipFileCache openZips = new ZipFileCache();
  
-   protected ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger) {
+   public ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger) {
      root = destination;
-@@ -148,16 +150,15 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -154,16 +156,15 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
  
    @Override
    public byte[] getBytecode(String externalPath, String internalPath) throws IOException {
@@ -81,7 +81,7 @@ index d0bbb370b5f3e794b773b3d2cc4fa64e740ffd1b..a5216e8f7ba2c583cc1c7d11be8ca622
      }
    }
  
-@@ -228,7 +229,8 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -234,7 +235,8 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
        return;
      }
  
@@ -91,7 +91,7 @@ index d0bbb370b5f3e794b773b3d2cc4fa64e740ffd1b..a5216e8f7ba2c583cc1c7d11be8ca622
        ZipEntry entry = srcArchive.getEntry(entryName);
        if (entry != null) {
          try (InputStream in = srcArchive.getInputStream(entry)) {
-@@ -287,4 +289,9 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -293,4 +295,9 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
        DecompilerContext.getLogger().writeMessage("Cannot close " + file, IFernflowerLogger.Severity.WARN);
      }
    }
@@ -192,10 +192,10 @@ index fad1ddcfb9d2e43720b4cd3acaa165ba86e94892..9d936af9304346ab59475a696b9170d7
 +  default void close() throws IOException {}
  }
 diff --git a/src/org/jetbrains/java/decompiler/struct/ContextUnit.java b/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
-index a93d1be4e7c3124591cc95992e7d154711f3f0e5..a83a65f8c10e5e73cc4c0cdd456f9c895e12fa33 100644
+index 65c459ff4c5ef74e405d63abfb342f456d08567c..98c9386debff044b114d3e5aa016d3894bbcfe92 100644
 --- a/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
 +++ b/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
-@@ -165,12 +165,9 @@ public class ContextUnit {
+@@ -162,12 +162,9 @@ public class ContextUnit {
            }
  
            //Ask the executor to shutdown
@@ -209,7 +209,7 @@ index a93d1be4e7c3124591cc95992e7d154711f3f0e5..a83a65f8c10e5e73cc4c0cdd456f9c89
            for (ClassContext clCtx : toProcess) {
              if (clCtx.shouldContinue) {
 diff --git a/src/org/jetbrains/java/decompiler/struct/StructContext.java b/src/org/jetbrains/java/decompiler/struct/StructContext.java
-index 61486aa06985324eb48a931d50cec4749719a0a1..cb7433e4c18302316ea21e930a92a290bc6573f7 100644
+index a929aca1f633a76660111010256dae0ef014f6fd..bc0eba4bec2dc0d69725bace60bfe9603bccceac 100644
 --- a/src/org/jetbrains/java/decompiler/struct/StructContext.java
 +++ b/src/org/jetbrains/java/decompiler/struct/StructContext.java
 @@ -2,6 +2,7 @@
@@ -220,7 +220,7 @@ index 61486aa06985324eb48a931d50cec4749719a0a1..cb7433e4c18302316ea21e930a92a290
  import org.jetbrains.java.decompiler.main.extern.IResultSaver;
  import org.jetbrains.java.decompiler.struct.lazy.LazyLoader;
  import org.jetbrains.java.decompiler.util.DataInputFullStream;
-@@ -143,7 +144,7 @@ public class StructContext {
+@@ -148,7 +149,7 @@ public class StructContext {
              StructClass cl = StructClass.create(new DataInputFullStream(bytes), isOwn, loader);
              classes.put(cl.qualifiedName, cl);
              unit.addClass(cl, name);
@@ -229,7 +229,7 @@ index 61486aa06985324eb48a931d50cec4749719a0a1..cb7433e4c18302316ea21e930a92a290
            }
            else {
              unit.addOtherEntry(file.getAbsolutePath(), name);
-@@ -159,4 +160,12 @@ public class StructContext {
+@@ -164,4 +165,12 @@ public class StructContext {
    public Map<String, StructClass> getClasses() {
      return classes;
    }
@@ -322,19 +322,18 @@ index 0000000000000000000000000000000000000000..92ebb33e213d4a9da802284f77df25b0
 +  }
 +}
 diff --git a/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java b/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
-index 4c5641fec76837a51094d4a54800d5b7475446ca..baa08e6c5d2cb8de6a7f174ca9392f29a964da50 100644
+index 72ef0ba671bdd422a382c3e0803898785a87e4e5..e3f50aef9df11c79c0934f2df34fc7342104b731 100644
 --- a/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
 +++ b/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
-@@ -59,7 +59,7 @@ public class DecompilerTestFixture {
-     if (tempDir != null) {
-       delete(tempDir);
+@@ -76,6 +76,7 @@ public class DecompilerTestFixture {
+     finally {
+       decompiler.close();
      }
--    decompiler.close();
 +    decompiler.clear();
    }
  
-   public File getTestDataDir() {
-@@ -140,7 +140,7 @@ public class DecompilerTestFixture {
+   public Path getTestDataDir() {
+@@ -165,7 +166,7 @@ public class DecompilerTestFixture {
        }
      }
  

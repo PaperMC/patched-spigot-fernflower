@@ -7,10 +7,10 @@ Subject: [PATCH] Forgeflower - Make decomp threaded
 `-thr AUTO` to auto select, (default)
 
 diff --git a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
-index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9baf9aa4021 100644
+index 9dbcb2bb603b440063e44cfa33d3aeaae2edcd8c..76e318d000c090679ccc3767a7404706bd74ecbe 100644
 --- a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
 +++ b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
-@@ -34,7 +34,8 @@ public class ClassesProcessor implements CodeConstants {
+@@ -35,7 +35,8 @@ public class ClassesProcessor {
    public static final int AVERAGE_CLASS_SIZE = 16 * 1024;
  
    private final StructContext context;
@@ -20,7 +20,7 @@ index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9ba
  
    private static class Inner {
      private String simpleName;
-@@ -296,7 +297,7 @@ public class ClassesProcessor implements CodeConstants {
+@@ -313,7 +314,7 @@ public class ClassesProcessor {
      return true;
    }
  
@@ -29,7 +29,7 @@ index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9ba
      ClassNode root = mapRootClasses.get(cl.qualifiedName);
      if (root.type != ClassNode.CLASS_ROOT) {
        return;
-@@ -305,25 +306,12 @@ public class ClassesProcessor implements CodeConstants {
+@@ -322,25 +323,12 @@ public class ClassesProcessor {
      boolean packageInfo = cl.isSynthetic() && "package-info".equals(root.simpleName);
      boolean moduleInfo = cl.hasModifier(CodeConstants.ACC_MODULE) && cl.hasAttribute(StructGeneralAttribute.ATTRIBUTE_MODULE);
  
@@ -58,7 +58,7 @@ index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9ba
          new LambdaProcessor().processClass(root);
  
          // add simple class names to implicit import
-@@ -335,7 +323,36 @@ public class ClassesProcessor implements CodeConstants {
+@@ -352,7 +340,36 @@ public class ClassesProcessor {
          new NestedClassProcessor().processClass(root, root);
  
          new NestedMemberAccess().propagateMemberAccess(root);
@@ -95,7 +95,7 @@ index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9ba
          TextBuffer classBuffer = new TextBuffer(AVERAGE_CLASS_SIZE);
          new ClassWriter().classToJava(root, classBuffer, 0, null);
  
-@@ -345,7 +362,7 @@ public class ClassesProcessor implements CodeConstants {
+@@ -362,7 +379,7 @@ public class ClassesProcessor {
            buffer.append("package ").append(packageName).append(';').appendLineSeparator().appendLineSeparator();
          }
  
@@ -105,10 +105,10 @@ index e74f7f7821bfc2092bfadc6ad702e3fdc438f200..de70b5a5cb47fd2f00d3b9c05a24f9ba
          int offsetLines = buffer.countLines();
  
 diff --git a/src/org/jetbrains/java/decompiler/main/DecompilerContext.java b/src/org/jetbrains/java/decompiler/main/DecompilerContext.java
-index e2936358fa03746e00e23d30f47351c28124e09f..4815c6eca26b58180c4dd31698bfbe95771af2e1 100644
+index a1c3fd00ba52fe952f6e4fdecff3533d83f43df4..d040a055a9602b4ce3bd7df582343f520ef4c095 100644
 --- a/src/org/jetbrains/java/decompiler/main/DecompilerContext.java
 +++ b/src/org/jetbrains/java/decompiler/main/DecompilerContext.java
-@@ -10,6 +10,7 @@ import org.jetbrains.java.decompiler.modules.decompiler.vars.VarProcessor;
+@@ -12,6 +12,7 @@ import org.jetbrains.java.decompiler.modules.decompiler.vars.VarProcessor;
  import org.jetbrains.java.decompiler.modules.renamer.PoolInterceptor;
  import org.jetbrains.java.decompiler.struct.StructContext;
  
@@ -116,31 +116,46 @@ index e2936358fa03746e00e23d30f47351c28124e09f..4815c6eca26b58180c4dd31698bfbe95
  import java.util.Map;
  import java.util.Objects;
  
-@@ -24,12 +25,14 @@ public class DecompilerContext {
-   private final StructContext structContext;
-   private final ClassesProcessor classProcessor;
+@@ -33,6 +34,7 @@ public class DecompilerContext {
    private final PoolInterceptor poolInterceptor;
+   @NotNull
+   private final CancellationManager cancellationManager;
 +  private final int threads;
    private ImportCollector importCollector;
    private VarProcessor varProcessor;
    private CounterContainer counterContainer;
-   private BytecodeSourceMapper bytecodeSourceMapper;
+@@ -42,8 +44,9 @@ public class DecompilerContext {
+                            @NotNull IFernflowerLogger logger,
+                            @NotNull StructContext structContext,
+                            @NotNull ClassesProcessor classProcessor,
+-                           @Nullable PoolInterceptor interceptor) {
+-    this(properties, logger, structContext, classProcessor, interceptor, null);
++                           @Nullable PoolInterceptor interceptor,
++                           final int threads) {
++    this(properties, logger, structContext, classProcessor, interceptor, null, threads);
+   }
  
-   public DecompilerContext(Map<String, Object> properties,
-+                           int threads,
-                            IFernflowerLogger logger,
-                            StructContext structContext,
-                            ClassesProcessor classProcessor,
-@@ -40,6 +43,7 @@ public class DecompilerContext {
-     Objects.requireNonNull(classProcessor);
+   public DecompilerContext(@NotNull Map<String, Object> properties,
+@@ -51,7 +54,8 @@ public class DecompilerContext {
+                            @NotNull StructContext structContext,
+                            @NotNull ClassesProcessor classProcessor,
+                            @Nullable PoolInterceptor interceptor,
+-                           @Nullable CancellationManager cancellationManager) {
++                           @Nullable CancellationManager cancellationManager,
++                           int threads) {
+     Objects.requireNonNull(properties);
+     Objects.requireNonNull(logger);
+     Objects.requireNonNull(structContext);
+@@ -63,6 +67,7 @@ public class DecompilerContext {
+     }
  
      this.properties = properties;
 +    this.threads = threads;
      this.logger = logger;
      this.structContext = structContext;
      this.classProcessor = classProcessor;
-@@ -47,6 +51,17 @@ public class DecompilerContext {
-     this.counterContainer = new CounterContainer();
+@@ -71,6 +76,18 @@ public class DecompilerContext {
+     this.cancellationManager = cancellationManager;
    }
  
 +  //Safe to not copy some of the fields.
@@ -152,12 +167,13 @@ index e2936358fa03746e00e23d30f47351c28124e09f..4815c6eca26b58180c4dd31698bfbe95
 +    this.classProcessor = other.classProcessor;
 +    this.poolInterceptor = other.poolInterceptor;
 +    this.threads = other.threads;
++    this.cancellationManager = other.cancellationManager;
 +  }
 +
    // *****************************************************************************
    // context setup and update
    // *****************************************************************************
-@@ -61,6 +76,14 @@ public class DecompilerContext {
+@@ -85,6 +102,14 @@ public class DecompilerContext {
      currentContext.set(context);
    }
  
@@ -172,7 +188,7 @@ index e2936358fa03746e00e23d30f47351c28124e09f..4815c6eca26b58180c4dd31698bfbe95
    public static void setProperty(String key, Object value) {
      getCurrentContext().properties.put(key, value);
    }
-@@ -95,6 +118,10 @@ public class DecompilerContext {
+@@ -119,6 +144,10 @@ public class DecompilerContext {
             IFernflowerPreferences.LINE_SEPARATOR_UNX : IFernflowerPreferences.LINE_SEPARATOR_WIN;
    }
  
@@ -184,30 +200,36 @@ index e2936358fa03746e00e23d30f47351c28124e09f..4815c6eca26b58180c4dd31698bfbe95
      return getCurrentContext().logger;
    }
 diff --git a/src/org/jetbrains/java/decompiler/main/Fernflower.java b/src/org/jetbrains/java/decompiler/main/Fernflower.java
-index eb8df60b18838c6a002f1b9b1ad4655360658dfa..8c3337496e31d045cd9c462c8ae5f799bc9ceb06 100644
+index 433b85e2390cefe31cc02aa3c7b18eb7f1da2b7d..1ec64056ac6ef7044d3bc68108846ab72acd07f9 100644
 --- a/src/org/jetbrains/java/decompiler/main/Fernflower.java
 +++ b/src/org/jetbrains/java/decompiler/main/Fernflower.java
-@@ -24,6 +24,10 @@ public class Fernflower implements IDecompiledData {
-   private final IdentifierConverter converter;
- 
-   public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger) {
-+    this(provider, saver, customProperties, logger, 0);
-+  }
-+
-+  public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger, int threads) {
+@@ -28,7 +28,8 @@ public class Fernflower implements IDecompiledData {
+                     IResultSaver saver,
+                     @Nullable Map<String, Object> customProperties,
+                     IFernflowerLogger logger,
+-                    @Nullable CancellationManager cancellationManager) {
++                    @Nullable CancellationManager cancellationManager,
++                    int threads) {
      Map<String, Object> properties = new HashMap<>(IFernflowerPreferences.DEFAULTS);
      if (customProperties != null) {
        properties.putAll(customProperties);
-@@ -51,7 +55,7 @@ public class Fernflower implements IDecompiledData {
+@@ -56,12 +57,12 @@ public class Fernflower implements IDecompiledData {
        converter = null;
      }
  
--    DecompilerContext context = new DecompilerContext(properties, logger, structContext, classProcessor, interceptor);
-+    DecompilerContext context = new DecompilerContext(properties, threads, logger, structContext, classProcessor, interceptor);
+-    DecompilerContext context = new DecompilerContext(properties, logger, structContext, classProcessor, interceptor, cancellationManager);
++    DecompilerContext context = new DecompilerContext(properties, logger, structContext, classProcessor, interceptor, cancellationManager, threads);
      DecompilerContext.setCurrentContext(context);
    }
  
-@@ -106,6 +110,17 @@ public class Fernflower implements IDecompiledData {
+-  public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger) {
+-    this(provider, saver, customProperties, logger, null);
++  public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger, final int threads) {
++    this(provider, saver, customProperties, logger, null, threads);
+   }
+ 
+   private static IIdentifierRenamer loadHelper(String className, IFernflowerLogger logger) {
+@@ -115,6 +116,17 @@ public class Fernflower implements IDecompiledData {
      }
    }
  
@@ -225,11 +247,24 @@ index eb8df60b18838c6a002f1b9b1ad4655360658dfa..8c3337496e31d045cd9c462c8ae5f799
    @Override
    public String getClassContent(StructClass cl) {
      try {
+diff --git a/src/org/jetbrains/java/decompiler/main/decompiler/BaseDecompiler.java b/src/org/jetbrains/java/decompiler/main/decompiler/BaseDecompiler.java
+index 3abd62c448c63d0c06091a64e748859edc28cd10..e4d48bc758e8ee8fa71ed25bec985c237fd6319f 100644
+--- a/src/org/jetbrains/java/decompiler/main/decompiler/BaseDecompiler.java
++++ b/src/org/jetbrains/java/decompiler/main/decompiler/BaseDecompiler.java
+@@ -21,7 +21,7 @@ public class BaseDecompiler {
+ 
+   public BaseDecompiler(IBytecodeProvider provider, IResultSaver saver, @Nullable Map<String, Object> options, IFernflowerLogger logger,
+                         @Nullable CancellationManager cancellationManager) {
+-    engine = new Fernflower(provider, saver, options, logger, cancellationManager);
++    engine = new Fernflower(provider, saver, options, logger, cancellationManager, 1);
+   }
+ 
+   public void addSource(File source) {
 diff --git a/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java b/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
-index 75d4d0937f1e39fe630b1318a4ad531de7fbd644..d0bbb370b5f3e794b773b3d2cc4fa64e740ffd1b 100644
+index febdd061fa5054ceeb14d267b6fb4b10cb528370..5a75806a00e01c9ea8f238da4d5a9b7b38be8a7c 100644
 --- a/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
 +++ b/src/org/jetbrains/java/decompiler/main/decompiler/ConsoleDecompiler.java
-@@ -5,6 +5,7 @@ import org.jetbrains.java.decompiler.main.DecompilerContext;
+@@ -6,6 +6,7 @@ import org.jetbrains.java.decompiler.main.DecompilerContext;
  import org.jetbrains.java.decompiler.main.Fernflower;
  import org.jetbrains.java.decompiler.main.extern.IBytecodeProvider;
  import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
@@ -237,7 +272,7 @@ index 75d4d0937f1e39fe630b1318a4ad531de7fbd644..d0bbb370b5f3e794b773b3d2cc4fa64e
  import org.jetbrains.java.decompiler.main.extern.IResultSaver;
  import org.jetbrains.java.decompiler.util.InterpreterUtil;
  
-@@ -69,7 +70,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -70,7 +71,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
        return;
      }
  
@@ -246,9 +281,9 @@ index 75d4d0937f1e39fe630b1318a4ad531de7fbd644..d0bbb370b5f3e794b773b3d2cc4fa64e
      ConsoleDecompiler decompiler = new ConsoleDecompiler(destination, mapOptions, logger);
  
      for (File library : libraries) {
-@@ -104,7 +105,24 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
+@@ -105,12 +106,29 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
  
-   protected ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger) {
+   public ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger) {
      root = destination;
 -    engine = new Fernflower(this, this, options, logger);
 +    String thr = options != null ? (String) options.getOrDefault(IFernflowerPreferences.THREADS, "AUTO") : "AUTO";
@@ -269,6 +304,12 @@ index 75d4d0937f1e39fe630b1318a4ad531de7fbd644..d0bbb370b5f3e794b773b3d2cc4fa64e
 +    }
 +
 +    engine = new Fernflower(this, saver, options, logger, threads);
+   }
+ 
+   public ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger, CancellationManager cancellationManager) {
+     root = destination;
+-    engine = new Fernflower(this, this, options, logger, cancellationManager);
++    engine = new Fernflower(this, this, options, logger, cancellationManager, 1);
    }
  
    public void addSource(File source) {
@@ -668,27 +709,27 @@ index c9ece039b0d986c1d84b62426a65e6780ddc80e1..3ca43800b47e1d26a1dc036f21cb6e6e
  
    public void endReadingClass() { }
 diff --git a/src/org/jetbrains/java/decompiler/main/extern/IFernflowerPreferences.java b/src/org/jetbrains/java/decompiler/main/extern/IFernflowerPreferences.java
-index 62708573dfb82f919a8c59988695d366f697b04f..51729f1ee910ddc703ad0f4778377a23aeb02d8a 100644
+index 4f2d728197e397a18be17f19fecb1d33231e801c..75677a337cceda6258381be87b48ffdfbf92f833 100644
 --- a/src/org/jetbrains/java/decompiler/main/extern/IFernflowerPreferences.java
 +++ b/src/org/jetbrains/java/decompiler/main/extern/IFernflowerPreferences.java
-@@ -35,6 +35,7 @@ public interface IFernflowerPreferences {
-   String IGNORE_INVALID_BYTECODE = "iib";
-   String VERIFY_ANONYMOUS_CLASSES = "vac";
+@@ -37,6 +37,7 @@ public interface IFernflowerPreferences {
+   String CONVERT_RECORD_PATTERN = "crp";
+   String CONVERT_PATTERN_SWITCH = "cps";
    String ADD_OVERRIDE_ANNOTATION = "aoa";
 +  String THREADS = "thr";
  
    String LOG_LEVEL = "log";
    String MAX_PROCESSING_METHOD = "mpm";
-@@ -82,6 +83,7 @@ public interface IFernflowerPreferences {
-     defaults.put(IGNORE_INVALID_BYTECODE, "0");
-     defaults.put(VERIFY_ANONYMOUS_CLASSES, "0");
+@@ -86,6 +87,7 @@ public interface IFernflowerPreferences {
+     defaults.put(CONVERT_RECORD_PATTERN, "0");
+     defaults.put(CONVERT_PATTERN_SWITCH, "0");
      defaults.put(ADD_OVERRIDE_ANNOTATION, "0");
 +    defaults.put(THREADS, "AUTO");
  
      defaults.put(LOG_LEVEL, IFernflowerLogger.Severity.INFO.name());
      defaults.put(MAX_PROCESSING_METHOD, "0");
 diff --git a/src/org/jetbrains/java/decompiler/struct/ContextUnit.java b/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
-index c77cfaaebf859586a7201e481cf328044f860dcf..a93d1be4e7c3124591cc95992e7d154711f3f0e5 100644
+index 9482a192692ca6a05d2bb24f3dfca06c25580d80..65c459ff4c5ef74e405d63abfb342f456d08567c 100644
 --- a/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
 +++ b/src/org/jetbrains/java/decompiler/struct/ContextUnit.java
 @@ -11,8 +11,14 @@ import org.jetbrains.java.decompiler.util.DataInputFullStream;
@@ -718,7 +759,7 @@ index c77cfaaebf859586a7201e481cf328044f860dcf..a93d1be4e7c3124591cc95992e7d1547
              if (content != null) {
                int[] mapping = null;
                if (DecompilerContext.getOption(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING)) {
-@@ -128,13 +137,64 @@ public class ContextUnit {
+@@ -125,13 +134,64 @@ public class ContextUnit {
            }
          }
  
@@ -790,7 +831,7 @@ index c77cfaaebf859586a7201e481cf328044f860dcf..a93d1be4e7c3124591cc95992e7d1547
            }
          }
  
-@@ -142,6 +202,16 @@ public class ContextUnit {
+@@ -140,6 +200,16 @@ public class ContextUnit {
      }
    }
  
@@ -807,7 +848,7 @@ index c77cfaaebf859586a7201e481cf328044f860dcf..a93d1be4e7c3124591cc95992e7d1547
    public void setManifest(Manifest manifest) {
      this.manifest = manifest;
    }
-@@ -153,4 +223,16 @@ public class ContextUnit {
+@@ -151,4 +221,16 @@ public class ContextUnit {
    public List<StructClass> getClasses() {
      return classes;
    }
