@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jason Penilla <11360596+jpenilla@users.noreply.github.com>
+Date: Tue, 23 Apr 2024 09:43:10 -0700
+Subject: [PATCH] Add source/target compatibility for maven weirdness
+
+
+diff --git a/pom.xml b/pom.xml
+index 2048f62c7024415b3d80586a05915ea7b329fffd..7e7bd82f3ff591fd8696fc28f38ae143e7294f18 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -10,6 +10,8 @@
+ 
+     <properties>
+         <maven.compiler.release>17</maven.compiler.release>
++        <maven.compiler.source>17</maven.compiler.source>
++        <maven.compiler.target>17</maven.compiler.target>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+     </properties>
+ 
