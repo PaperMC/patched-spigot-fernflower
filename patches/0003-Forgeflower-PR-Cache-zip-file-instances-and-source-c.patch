@@ -322,18 +322,19 @@ index 0000000000000000000000000000000000000000..92ebb33e213d4a9da802284f77df25b0
 +  }
 +}
 diff --git a/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java b/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
-index 72ef0ba671bdd422a382c3e0803898785a87e4e5..e3f50aef9df11c79c0934f2df34fc7342104b731 100644
+index 72ef0ba671bdd422a382c3e0803898785a87e4e5..4896be9ec07dcc996c2da6cb8e0ed9c8ab5122c1 100644
 --- a/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
 +++ b/test/org/jetbrains/java/decompiler/DecompilerTestFixture.java
-@@ -76,6 +76,7 @@ public class DecompilerTestFixture {
-     finally {
-       decompiler.close();
+@@ -74,7 +74,7 @@ public class DecompilerTestFixture {
+       }
      }
-+    decompiler.clear();
+     finally {
+-      decompiler.close();
++      decompiler.clear();
+     }
    }
  
-   public Path getTestDataDir() {
-@@ -165,7 +166,7 @@ public class DecompilerTestFixture {
+@@ -165,7 +165,7 @@ public class DecompilerTestFixture {
        }
      }
  
