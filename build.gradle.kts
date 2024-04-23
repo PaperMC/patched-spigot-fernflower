@@ -7,10 +7,12 @@ val ghRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.let { "build.$it" } ?: "lo
 group = "io.papermc"
 version = "0.1+$ghRunNumber"
 
-patches {
-  submodule.set("work/Fernflower")
-  target.set(file("patched-spigot-fernflower"))
-  patches.set(file("patches"))
+gitPatcher {
+  patchedRepos.register("fernflower") {
+    submodule.set("work/Fernflower")
+    target.set(file("patched-spigot-fernflower"))
+    patches.set(file("patches"))
+  }
 }
 
 tasks.register("rebuildPatches") {
