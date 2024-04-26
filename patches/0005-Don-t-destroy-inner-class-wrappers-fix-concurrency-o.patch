@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jason Penilla <11360596+jpenilla@users.noreply.github.com>
+Date: Fri, 26 Apr 2024 08:45:02 -0700
+Subject: [PATCH] Don't destroy inner class wrappers (fix concurrency/order
+ issue)
+
+
+diff --git a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
+index c04e78fef79c233729a6e987fc0c1f5eaebb255a..4ef0b3e5a155b3fee24c1603198fe8c1bf626968 100644
+--- a/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
++++ b/src/org/jetbrains/java/decompiler/main/ClassesProcessor.java
+@@ -434,7 +434,7 @@ public class ClassesProcessor {
+     node.classStruct.releaseResources();
+ 
+     for (ClassNode nd : node.nested) {
+-      destroyWrappers(nd);
++      // destroyWrappers(nd);
+     }
+   }
+ 
